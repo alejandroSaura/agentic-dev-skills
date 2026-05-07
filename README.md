@@ -64,4 +64,4 @@ Pull the latest from the repo, then re-run the install script. The destination f
 
 ## License
 
-(Choose a license before sharing publicly.)
+MIT. See [LICENSE](LICENSE).
