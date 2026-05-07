@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agentic Harness — Feature State",
+  "description": "Machine-readable canonical state for a feature workflow. Source of truth for orchestration, resume, and telemetry.",
+  "type": "object",
+  "required": ["feature_name", "plan_path", "workflow_version", "schema_version", "status", "mode", "completed_phases", "verification", "budgets", "telemetry", "next_action", "blockers", "last_updated"],
+  "properties": {
+    "feature_name": {
+      "type": "string",
+      "description": "Kebab-case feature identifier"
+    },
+    "plan_path": {
+      "type": "string",
+      "description": "Path to the plan .md file"
+    },
+    "workflow_version": {
+      "type": "string",
+      "enum": ["v2"],
+      "description": "Harness version"
+    },
+    "schema_version": {
+      "type": "string",
+      "enum": ["v2", "v3"],
+      "description": "State-schema version controlling grandfathering per D-7. `v2` = pre-proposal-29 shape: single `current_phase`, no feature-list requirement, no model_choice fields. Features initialized before the mandatory-feature-list / parallel-phases rollout stay at v2 and finalize under their original semantics. `v3` = post-proposal-29 shape: `feature-list.json` is mandatory, `current_phases[]` array is supported for parallel execution, per-entry `model_choice` + `model_choice_rationale` are populated. Initialize-feature always writes the latest version (currently `v3`) for new features; resume-feature reads this field to decide whether to run the feature in grandfathered (v2) mode or strict (v3) mode. A v2 feature never auto-upgrades to v3; migration is an explicit user-requested step, out of scope of this schema."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["initializing", "analyzing", "implementing", "reviewing", "fixing", "blocked", "complete"],
+      "description": "Current high-level workflow status"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["lightweight", "standard", "full"],
+      "description": "Execution mode"
+    },
+    "current_phase": {
+      "type": ["object", "null"],
+      "description": "Active phase details, null when complete. Used by v2 grandfathered features (single-phase execution). v3 features populate `current_phases[]` instead.",
+      "properties": {
+        "id": { "type": "string", "description": "Phase identifier, e.g. phase-1" },
+        "title": { "type": "string", "description": "Human-readable phase title" },
+        "branch": { "type": "string", "description": "Git branch for this phase" },
+        "worktree_path": { "type": ["string", "null"], "description": "Worktree path if isolated" },
+        "attempt": { "type": "integer", "minimum": 1, "description": "Implementation attempt number" },
+        "review_round": { "type": "integer", "minimum": 0, "description": "Review iteration count" },
+        "fix_round": { "type": "integer", "minimum": 0, "description": "Fix iteration count" },
+        "started_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "branch", "attempt", "review_round", "fix_round", "started_at"]
+    },
+    "current_phases": {
+      "type": "array",
+      "description": "Active phases for v3 schema features. Supports parallel phase execution per Phase 9 — the array may carry multiple concurrent entries when the orchestrator's parallel-safety check authorises dispatch (see `.claude/commands/agentic-dev.md` §Parallelism Policy). Each entry carries its own `model_choice` and `model_choice_rationale` because parallel phases may dispatch with different models (Phase 10, per-entry per codex v4 important finding). v2 grandfathered features leave this unset and use the singular `current_phase` field instead.",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "branch", "attempt", "review_round", "fix_round", "started_at", "model_choice", "model_choice_rationale"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "description": "Phase identifier, e.g. phase-1." },
+          "title": { "type": "string", "description": "Human-readable phase title." },
+          "branch": { "type": "string", "description": "Git branch for this phase. Flat naming per D-9: `feature/<feature-name>-phase-<N>`." },
+          "worktree_path": { "type": ["string", "null"], "description": "Worktree path if isolated (required for parallel execution per Phase 9 C-6)." },
+          "attempt": { "type": "integer", "minimum": 1, "description": "Implementation attempt number." },
+          "review_round": { "type": "integer", "minimum": 0, "description": "Review iteration count." },
+          "fix_round": { "type": "integer", "minimum": 0, "description": "Fix iteration count." },
+          "started_at": { "type": "string", "format": "date-time" },
+          "model_choice": {
+            "type": "string",
+            "enum": ["opus", "sonnet", "haiku", "codex"],
+            "description": "Per-entry implementation-agent model selected by the orchestrator for this phase dispatch. Populated before every dispatch for v3 features per the 5-rule decision flow in `.claude/commands/agentic-dev.md` §'Model Selection Heuristics'. Per-entry (not top-level singular) because parallel dispatches may carry different models. v2 grandfathered features omit this field."
+          },
+          "model_choice_rationale": {
+            "type": "string",
+            "enum": [
+              "plan_suggested",
+              "promoted_scope_ambiguity",
+              "promoted_unresolved_decision",
+              "promoted_cross_cutting",
+              "promoted_correctness_critical",
+              "promoted_foundational",
+              "promoted_fix_round",
+              "user_override"
+            ],
+            "description": "Why the orchestrator landed on `model_choice` for this specific dispatch. The chosen backend may be a Claude model or `codex` (invoked via Codex CLI rather than the Agent tool). Enum values mirror the 8 outcomes of the decision flow in `.claude/commands/agentic-dev.md` §'Model Selection Heuristics': `plan_suggested` (plan manifest's suggested_model passed validation with no promote conditions triggered), five `promoted_*` values (scope ambiguity / unresolved decision / cross-cutting / correctness-critical / foundational, per Phase 10 rule 2), `promoted_fix_round` (auto-promote on fix dispatch per rule 3), and `user_override` (explicit pin via context-doc metadata per rule 4). Recorded before dispatch; telemetry `runs.ndjson` mirrors this alongside duration and token usage so the heuristic can be retroactively evaluated."
+          }
+        }
+      }
+    },
+    "completed_phases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "merged": { "type": "boolean" },
+          "review_passed": { "type": "boolean" },
+          "merged_commit": { "type": "string" },
+          "completed_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "merged", "review_passed"]
+      }
+    },
+    "verification": {
+      "type": "object",
+      "properties": {
+        "required_gates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["format", "lint", "typecheck", "build", "unit_tests", "targeted_tests", "integration_tests", "repro_script", "review"]
+          }
+        },
+        "last_results": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["pass", "fail", "skip", "pending"]
+          }
+        }
+      },
+      "required": ["required_gates", "last_results"]
+    },
+    "budgets": {
+      "type": "object",
+      "description": "Budget limits and escalation policy. Initialized from budgets.json (if present) or defaults.",
+      "properties": {
+        "max_review_rounds_per_phase": { "type": "integer", "minimum": 1 },
+        "max_fix_rounds_per_phase": { "type": "integer", "minimum": 1 },
+        "max_total_agent_runs": { "type": "integer", "minimum": 1 },
+        "max_parallel_agents": { "type": "integer", "minimum": 1 },
+        "max_unproductive_retries": { "type": "integer", "minimum": 1 },
+        "max_consecutive_gate_failures": { "type": "integer", "minimum": 1 },
+        "escalation_policy": {
+          "type": "object",
+          "description": "What to do when budgets are exceeded",
+          "properties": {
+            "on_review_budget_exceeded": { "type": "string", "enum": ["block", "ask_user"], "default": "ask_user" },
+            "on_fix_budget_exceeded": { "type": "string", "enum": ["block", "ask_user"], "default": "ask_user" },
+            "on_unproductive_loop": { "type": "string", "enum": ["block", "ask_user"], "default": "block" },
+            "on_gate_failure_loop": { "type": "string", "enum": ["block", "ask_user"], "default": "ask_user" }
+          }
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "properties": {
+        "agent_runs": { "type": "integer", "minimum": 0 },
+        "resume_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "project_knowledge": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Stable facts discovered during implementation that future agents should reuse"
+    },
+    "last_handoff": {
+      "type": ["object", "null"],
+      "description": "Context from the last agent run for the next agent. Null before the first implementation/review/fix handoff is recorded.",
+      "properties": {
+        "agent_type": { "type": "string", "enum": ["analysis", "implementation", "review", "fix"] },
+        "run_id": { "type": "string" },
+        "what_changed": { "type": "string" },
+        "what_did_not_change": { "type": "string" },
+        "next_recommended_action": { "type": "string" }
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "description": "Exact next action the orchestrator should take"
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["blocked_needs_human_decision", "blocked_needs_design_resolution", "blocked_needs_env_fix", "blocked_unproductive_loop"]
+          },
+          "description": { "type": "string" },
+          "since": { "type": "string", "format": "date-time" }
+        },
+        "required": ["type", "description", "since"]
+      }
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-dev/phase-manifest.schema.json",
+  "title": "Agentic Harness — Phase Manifest",
+  "description": "Per-feature phase metadata authored by the plan and read by the orchestrator at dispatch time. Introduced in Phase 10 per codex v4 fix: `feature-list.json` is feature-grained and cannot carry one unambiguous model suggestion per phase when a feature spans multiple phases or a phase satisfies multiple features. The phase manifest is therefore the sole carrier of the `suggested_model` field and any other phase-granular metadata the orchestrator consumes (dependencies, touched-files, etc.). Lives at `dev/<feature>/phase-manifest.json`. Orchestrator-owned per D-10 (sub-agents never write to it).",
+  "type": "object",
+  "required": ["features", "phases"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_note": {
+      "type": "string",
+      "description": "Free-form note about authoring conventions or feature-specific caveats. Not load-bearing; orchestrator ignores it."
+    },
+    "features": {
+      "type": "array",
+      "description": "List of feature-list entry ids this manifest covers. Mirrors the `id` values in `feature-list.json` so the orchestrator can cross-check that every feature maps to at least one phase and every phase's `suggested_model` is backed by a real feature. Duplicates not permitted.",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^F-[0-9]{3,}$"
+      }
+    },
+    "phases": {
+      "type": "array",
+      "description": "Ordered list of phase entries. Order reflects planned execution; the orchestrator still evaluates the DAG declared via `dependencies` at dispatch time.",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/phaseEntry"
+      }
+    }
+  },
+  "definitions": {
+    "phaseEntry": {
+      "type": "object",
+      "required": ["id", "title", "suggested_model"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^phase-[0-9]+$",
+          "description": "Stable phase identifier. Format: phase-N. Must match the `blocking_phase` values used in feature-list.json."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable phase title. Pulled from the plan §4 phase heading."
+        },
+        "suggested_model": {
+          "type": "string",
+          "enum": ["opus", "sonnet", "haiku", "codex"],
+          "description": "Plan author's suggested implementation-agent model for this phase. `codex` selects the Codex CLI backend rather than the Agent tool. The orchestrator treats this as a suggestion and validates it against the 5-rule decision flow in `.claude/commands/agentic-dev.md` §'Model Selection Heuristics' at dispatch time. Default when omitted from a plan is `sonnet` (per Phase 10 rule 1); this schema requires it be written explicitly so the plan's intent is auditable."
+        },
+        "dependencies": {
+          "type": "array",
+          "description": "Phase ids this phase depends on. Feeds the DAG used by Phase 9's parallel-safety check. Empty array means the phase can run first. Cycles are a plan bug; orchestrator refuses to dispatch on detection.",
+          "default": [],
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^phase-[0-9]+$"
+          }
+        },
+        "touched_files": {
+          "type": "array",
+          "description": "Repo-root-relative paths the phase is expected to write. Feeds Phase 9's C-1 disjoint-files check and the per-phase branch's touched-files audit. Globs (e.g. `src/foo/*.cs`) are allowed; orchestrator expands them at dispatch.",
+          "default": [],
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "subsystems": {
+          "type": "array",
+          "description": "Logical subsystems touched (e.g. 'runtime', 'tests', 'docs', 'skill'). Feeds the 'cross-cutting if >= 2 subsystems' heuristic in §'Model Selection Heuristics' rule 2. Optional.",
+          "default": [],
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "correctness_critical": {
+          "type": "boolean",
+          "description": "True when the phase modifies a determinism pin, hasher, or is explicitly flagged by the plan as an INTENTIONAL HASH CHANGE. Triggers opus promotion per §'Model Selection Heuristics' rule 2.",
+          "default": false
+        },
+        "foundational": {
+          "type": "boolean",
+          "description": "True when the phase establishes contracts later phases depend on (e.g. an interface first used in phase-N and read by phases >N). Triggers opus promotion per §'Model Selection Heuristics' rule 2.",
+          "default": false
+        },
+        "suggested_model_rationale": {
+          "type": "string",
+          "description": "Optional one-line justification for the plan's `suggested_model` choice. Not load-bearing; the orchestrator records its own rationale via `state.json.current_phases[i].model_choice_rationale` regardless."
+        }
+      }
+    }
+  }
+}

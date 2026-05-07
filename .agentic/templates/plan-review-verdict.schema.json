@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Codex Plan-Review Verdict",
+  "description": "Structured output for codex plan-review agents spawned by /adversarial-review-plan. Orchestrator parses this to decide approval vs. another round. Used via `codex exec --output-schema <this file>` per adversarial-review-plan.md §Codex Invocation. Distinct from review-verdict.schema.json, which is for code-diff reviews in /agentic-dev.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "summary", "findings", "round_resolution_audit", "factual_corrections", "missed_risks"],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["APPROVE_AS_IS", "APPROVE_WITH_CHANGES", "REVISE_AND_RESUBMIT"],
+      "description": "APPROVE_AS_IS = no critical or important findings; proposal is implementation-ready. APPROVE_WITH_CHANGES = only important and/or optional findings; author should patch but implementation can proceed. REVISE_AND_RESUBMIT = at least one critical finding; another round is required before implementation."
+    },
+    "summary": {
+      "type": "string",
+      "description": "One short paragraph (under 200 words) on overall proposal state. Must state, for round 2+, whether the prior round's findings are resolved and what the single most important remaining concern is (if any)."
+    },
+    "round_resolution_audit": {
+      "type": ["array", "null"],
+      "description": "Required in round 2+. One entry per finding raised in the immediately prior round. Each entry cites the prior finding and its resolution status. Use null in round 1.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["prior_finding_title", "prior_finding_severity", "status", "justification"],
+        "properties": {
+          "prior_finding_title": {
+            "type": "string",
+            "description": "Title of the prior-round finding this entry audits."
+          },
+          "prior_finding_severity": {
+            "type": ["string", "null"],
+            "enum": ["critical", "important", "optional", null],
+            "description": "Severity assigned in the prior round. Null if not known."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["RESOLVED", "PARTIAL", "UNRESOLVED", "NEW_PROBLEM"],
+            "description": "RESOLVED = fix is correct and complete. PARTIAL = fix is directionally correct but misses a sub-case. UNRESOLVED = finding was not addressed. NEW_PROBLEM = the fix introduced a different issue that now supersedes the original."
+          },
+          "justification": {
+            "type": ["string", "null"],
+            "description": "One sentence citing the proposal section that addresses or fails to address the prior finding. Null if not applicable."
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "description": "All findings against the current proposal draft, grouped implicitly by severity. Empty array on APPROVE_AS_IS.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "title", "where", "issue", "suggested_fix"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "important", "optional"],
+            "description": "critical = blocks implementation; important = should fix before implementation starts but can be patched in parallel; optional = nit or deferrable cleanup."
+          },
+          "title": {
+            "type": "string",
+            "description": "One-line summary of the finding."
+          },
+          "where": {
+            "type": "string",
+            "description": "Proposal section reference (e.g. 'D-18, Phase 2 deliverable 2') plus any repo file path + line number the finding implicates."
+          },
+          "issue": {
+            "type": "string",
+            "description": "One-paragraph explanation of what is wrong, missing, or ambiguous."
+          },
+          "suggested_fix": {
+            "type": "string",
+            "description": "Concrete patch the author can apply. Specific enough that the author can act without re-deriving context."
+          }
+        }
+      }
+    },
+    "factual_corrections": {
+      "type": ["array", "null"],
+      "description": "Claims the proposal makes about the existing codebase that the reviewer verified as wrong or misleading. Separate from findings because these are specifically factual drift, not design issues. Null or empty array if none.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "reality", "reference"],
+        "properties": {
+          "claim": {
+            "type": "string",
+            "description": "The claim the proposal makes (quote or paraphrase with section ref)."
+          },
+          "reality": {
+            "type": "string",
+            "description": "What the reviewer found when verifying against the code."
+          },
+          "reference": {
+            "type": "string",
+            "description": "File path + line number supporting the correction."
+          }
+        }
+      }
+    },
+    "missed_risks": {
+      "type": ["array", "null"],
+      "description": "Risks or failure modes not captured in the proposal's risk section. Each item should be actionable, not philosophical. Null or empty array if none.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["risk", "mitigation"],
+        "properties": {
+          "risk": {
+            "type": "string",
+            "description": "One-sentence description of the risk."
+          },
+          "mitigation": {
+            "type": "string",
+            "description": "Concrete mitigation the author could add to the proposal."
+          }
+        }
+      }
+    }
+  }
+}

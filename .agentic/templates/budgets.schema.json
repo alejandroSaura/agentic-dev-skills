@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agentic Harness — Budget Configuration",
+  "description": "Policy-controlled budgets to prevent unbounded loops and make failure states explicit.",
+  "type": "object",
+  "required": ["max_review_rounds_per_phase", "max_fix_rounds_per_phase", "max_total_agent_runs", "max_parallel_agents", "max_unproductive_retries", "max_consecutive_gate_failures"],
+  "properties": {
+    "max_review_rounds_per_phase": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 4,
+      "description": "Maximum review iterations before escalation"
+    },
+    "max_fix_rounds_per_phase": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 4,
+      "description": "Maximum fix iterations before escalation"
+    },
+    "max_total_agent_runs": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 50,
+      "description": "Total agent spawns across the entire feature"
+    },
+    "max_parallel_agents": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 2,
+      "description": "Maximum concurrent agent instances"
+    },
+    "max_unproductive_retries": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 2,
+      "description": "Retries producing no meaningful diff change before escalation"
+    },
+    "max_consecutive_gate_failures": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 3,
+      "description": "Same gate failing consecutively before escalation"
+    },
+    "escalation_policy": {
+      "type": "object",
+      "description": "What to do when budgets are exceeded",
+      "properties": {
+        "on_review_budget_exceeded": {
+          "type": "string",
+          "enum": ["block", "ask_user", "force_merge"],
+          "default": "ask_user"
+        },
+        "on_fix_budget_exceeded": {
+          "type": "string",
+          "enum": ["block", "ask_user", "abandon_phase"],
+          "default": "ask_user"
+        },
+        "on_unproductive_loop": {
+          "type": "string",
+          "enum": ["block", "ask_user", "escalate_to_full_mode"],
+          "default": "block"
+        },
+        "on_gate_failure_loop": {
+          "type": "string",
+          "enum": ["block", "ask_user", "skip_gate"],
+          "default": "ask_user"
+        }
+      },
+      "required": ["on_review_budget_exceeded", "on_fix_budget_exceeded", "on_unproductive_loop", "on_gate_failure_loop"]
+    }
+  }
+}

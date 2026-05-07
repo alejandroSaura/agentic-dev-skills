@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Roadmap Runner State",
+  "description": "Canonical state for /roadmap-runner sessions. Lives at dev/<roadmap-slug>/runner-state.json. The roadmap doc itself is a human-readable projection; this file is the source of truth the runner reads on resume and updates after every transition.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["roadmap_path", "roadmap_slug", "status", "auto_advance", "child_plans", "telemetry"],
+  "properties": {
+    "roadmap_path": {
+      "type": "string",
+      "description": "Repo-root-relative path to the roadmap doc (e.g. docs/roadmaps/<slug>.md)."
+    },
+    "roadmap_slug": {
+      "type": "string",
+      "description": "Stable kebab-case identifier for the roadmap, used for state paths (dev/<roadmap_slug>/...)."
+    },
+    "spec_path": {
+      "type": ["string", "null"],
+      "description": "Optional path to the upstream spec the roadmap was distilled from. Forwarded to /adversarial-review-plan for each child plan when present."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["initializing", "running", "paused_for_human", "blocked", "complete", "aborted"],
+      "description": "initializing = parsing roadmap, building plan list. running = a child plan is in flight (planning, implementing, or demo). paused_for_human = waiting on a human gate (plan approval, demo verification, or auto_advance=false hold between plans). blocked = a child plan or runner action requires human input that the runner cannot resolve autonomously (see blocker). complete = all child plans complete. aborted = human or fatal error halted the run."
+    },
+    "auto_advance": {
+      "type": "boolean",
+      "description": "If true, the runner advances to the next plan automatically after demo verification. If false (default), the runner pauses and asks the human after each plan. Independent of in-plan human gates (plan approval, blocker resolution, demo verification) which are always required."
+    },
+    "current_plan_slug": {
+      "type": ["string", "null"],
+      "description": "Slug of the plan currently being worked on. Null when initializing, between plans (auto_advance=false), or complete."
+    },
+    "child_plans": {
+      "type": "array",
+      "description": "Per-plan state, ordered as in the roadmap §4. Updated after every transition; mirror of the roadmap doc's Status lines.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slug", "status", "plan_path"],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "Stable kebab-case identifier; matches the slug in the roadmap doc and is used for downstream paths (docs/plans/plan-<slug>.md, dev/<slug>/, feature branches)."
+          },
+          "title": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["not_started", "planning", "plan_ready", "implementing", "demo_pending", "complete", "blocked"],
+            "description": "Per-plan status. Mirrored to the roadmap doc's Status: line on every change."
+          },
+          "plan_path": {
+            "type": "string",
+            "description": "Repo-root-relative path to the plan file (e.g. docs/plans/plan-<slug>.md). May not exist yet if status=not_started."
+          },
+          "depends_on": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Slugs of plans this plan depends on. Runner refuses to dispatch this plan until all deps are status=complete."
+          },
+          "exit_demo": {
+            "type": ["string", "null"],
+            "description": "The exit demo description from §4 of the roadmap. Surfaced verbatim to the human at the demo verification gate."
+          },
+          "started_at": { "type": ["string", "null"] },
+          "plan_approved_at": { "type": ["string", "null"], "description": "When the human approved the /adversarial-review-plan output." },
+          "agentic_dev_completed_at": { "type": ["string", "null"], "description": "When agentic-dev returned success (before demo verification)." },
+          "demo_verified_at": { "type": ["string", "null"], "description": "When the human confirmed the exit demo passed." },
+          "completed_at": { "type": ["string", "null"] },
+          "agentic_dev_resume_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "How many times the runner has re-spawned agentic-dev for this plan after resolving a bubbled-up blocker. Used to detect runaway resume loops."
+          },
+          "child_state_path": {
+            "type": ["string", "null"],
+            "description": "Path to the agentic-dev state.json for this plan (e.g. dev/<slug>/state.json). Set when implementing begins."
+          }
+        }
+      }
+    },
+    "blocker": {
+      "type": ["object", "null"],
+      "description": "Active blocker that paused the runner. Cleared on resolution. Null when status != blocked.",
+      "additionalProperties": false,
+      "required": ["type", "raised_at", "summary"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "needs_plan_approval",
+            "needs_decision_for_plan_with_review",
+            "needs_decision_for_agentic_dev",
+            "needs_demo_verification",
+            "needs_merge_approval",
+            "needs_advance_decision",
+            "agentic_dev_budget_exceeded",
+            "agentic_dev_unproductive_loop",
+            "agentic_dev_failed",
+            "factual_drift_in_predecessor",
+            "other"
+          ],
+          "description": "What kind of human input the runner is waiting on. needs_plan_approval = /adversarial-review-plan converged, awaiting human OK to feed to /agentic-dev. needs_decision_for_* = a sub-skill (adversarial-review-plan or agentic-dev) hit a blocker requiring human input. needs_demo_verification = agentic-dev returned success; runner asks human to verify the exit demo. needs_merge_approval = agentic-dev's final_merge_policy=human_required gate. needs_advance_decision = auto_advance=false; runner asks human whether to begin the next plan. agentic_dev_* = budget/loop/failure conditions surfaced from agentic-dev's state.json. factual_drift_in_predecessor = runner detected that a predecessor plan's claims no longer match the codebase (e.g. a file was renamed)."
+        },
+        "child_plan_slug": {
+          "type": ["string", "null"],
+          "description": "Which child plan triggered the blocker, if applicable."
+        },
+        "child_state_path": {
+          "type": ["string", "null"],
+          "description": "Path to the agentic-dev or adversarial-review-plan state file the runner read to derive the blocker."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Human-readable description of what input is needed. The runner surfaces this to the user via AskUserQuestion."
+        },
+        "options": {
+          "type": ["array", "null"],
+          "items": { "type": "string" },
+          "description": "If the blocker has discrete choices, list them here so AskUserQuestion can render them as options."
+        },
+        "raised_at": { "type": "string" },
+        "resolved_at": { "type": ["string", "null"] },
+        "resolution": {
+          "type": ["string", "null"],
+          "description": "What the human chose / wrote. The runner writes this to the appropriate artifact (DECISIONS.md, REQUIREMENTS.md, the roadmap doc, etc.) before clearing the blocker."
+        },
+        "resolution_target_path": {
+          "type": ["string", "null"],
+          "description": "Where the runner wrote the resolution (e.g. dev/<child-slug>/DECISIONS.md, the roadmap's Status line for the affected plan)."
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["started_at", "last_updated", "plans_completed", "blockers_raised", "agentic_dev_resumes_total"],
+      "properties": {
+        "started_at": { "type": "string" },
+        "last_updated": { "type": "string" },
+        "plans_completed": { "type": "integer", "minimum": 0 },
+        "blockers_raised": { "type": "integer", "minimum": 0 },
+        "agentic_dev_resumes_total": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

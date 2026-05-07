@@ -1,0 +1,11 @@
+# Cross-platform line endings for the install scripts.
+# install.sh must stay LF (POSIX shells); install.ps1 must stay CRLF on Windows.
+*.sh text eol=lf
+*.ps1 text eol=crlf
+
+# Markdown files: normalize on commit, native on checkout (lets each platform see what it expects).
+*.md text
+
+# JSON / templates: normalize.
+*.json text
+*.template.md text

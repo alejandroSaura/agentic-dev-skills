@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agentic Harness — Telemetry Event",
+  "description": "Schema for individual run telemetry entries (NDJSON format, one event per line).",
+  "type": "object",
+  "required": ["run_id", "feature_name", "phase_id", "agent_type", "model", "started_at", "ended_at", "outcome"],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "Unique identifier for this agent run"
+    },
+    "feature_name": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "agent_type": {
+      "type": "string",
+      "enum": ["analysis", "implementation", "review", "fix", "orchestrator"]
+    },
+    "model": {
+      "type": "string",
+      "description": "Model or backend used (e.g., opus, sonnet, codex)"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ended_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["success", "failure", "timeout", "escalated", "cancelled"]
+    },
+    "files_changed": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Paths of files modified during this run"
+    },
+    "commands_executed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "verification_results": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["pass", "fail", "skip"]
+      }
+    },
+    "review_result": {
+      "type": ["string", "null"],
+      "enum": ["PASS", "FAIL", null]
+    },
+    "retry_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-form notes about this run"
+    }
+  }
+}

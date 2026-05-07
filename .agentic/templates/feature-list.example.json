@@ -1,0 +1,13 @@
+{
+  "schema_note": "Minimal example conforming to feature-list.schema.json. This shows the scale-down case: a 1-entry feature-list, valid ONLY when all four conditions from plan.template.md §Feature list hold: (a) exactly one observable behavior added/changed/removed, (b) exactly one verification command (no hidden pipeline sub-checks), (c) zero cross-phase dependencies, (d) touched-files ≤ 3. Any deviation requires multiple entries. Paths are repo-root-relative per D-11.",
+  "features": [
+    {
+      "id": "F-001",
+      "description": "README.md gains a one-line blurb about the new greeting feature",
+      "verification_command": "grep -q 'greeting feature' README.md",
+      "status": "pending",
+      "passed_at": null,
+      "blocking_phase": "phase-1"
+    }
+  ]
+}

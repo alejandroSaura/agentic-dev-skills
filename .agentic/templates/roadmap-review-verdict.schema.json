@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Codex Roadmap-Review Verdict",
+  "description": "Structured output for codex roadmap-review agents spawned by /adversarial-review-roadmap. Orchestrator parses this to decide approval vs. another round. Used via `codex exec --output-schema <this file>` per adversarial-review-roadmap.md §Codex Invocation. Distinct from plan-review-verdict.schema.json (single-plan reviews) and review-verdict.schema.json (code-diff reviews).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "summary", "findings", "round_resolution_audit", "spec_coverage_audit", "cross_plan_coupling_audit", "missed_risks"],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["APPROVE_AS_IS", "APPROVE_WITH_CHANGES", "REVISE_AND_RESUBMIT"],
+      "description": "APPROVE_AS_IS = no critical or important findings; roadmap is implementation-ready (each child plan can be picked up by /adversarial-review-plan). APPROVE_WITH_CHANGES = only important and/or optional findings; author should patch but the runner can begin on the first plan in parallel. REVISE_AND_RESUBMIT = at least one critical finding; another round is required before any child plan starts."
+    },
+    "summary": {
+      "type": "string",
+      "description": "One short paragraph (under 200 words) on overall roadmap state. Must state, for round 2+, whether the prior round's findings are resolved and what the single most important remaining concern is (if any)."
+    },
+    "round_resolution_audit": {
+      "type": ["array", "null"],
+      "description": "Required in round 2+. One entry per finding raised in the immediately prior round. Each entry cites the prior finding and its resolution status. Use null in round 1.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["prior_finding_title", "prior_finding_severity", "status", "justification"],
+        "properties": {
+          "prior_finding_title": { "type": "string" },
+          "prior_finding_severity": {
+            "type": ["string", "null"],
+            "enum": ["critical", "important", "optional", null]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["RESOLVED", "PARTIAL", "UNRESOLVED", "NEW_PROBLEM"],
+            "description": "RESOLVED = fix is correct and complete. PARTIAL = directionally correct but misses a sub-case. UNRESOLVED = not addressed. NEW_PROBLEM = the fix introduced a different issue that supersedes the original."
+          },
+          "justification": {
+            "type": ["string", "null"],
+            "description": "One sentence citing the roadmap section that addresses or fails to address the prior finding."
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "description": "All findings against the current roadmap draft. Empty array on APPROVE_AS_IS. Each finding tags the dimension it relates to so the author can prioritise and the orchestrator can route surgical edits to the right section.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "dimension", "title", "where", "issue", "suggested_fix"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "important", "optional"],
+            "description": "critical = blocks dispatching the affected plan(s); important = should fix before that plan starts but can be patched in parallel with earlier plans; optional = nit or deferrable cleanup."
+          },
+          "dimension": {
+            "type": "string",
+            "enum": ["slicing", "ordering", "exit_demo", "spec_coverage", "cross_plan_coupling", "risk_attribution", "scope_drift", "status_convention", "factual", "other"],
+            "description": "Which review axis this finding relates to. Used by the orchestrator to apply surgical edits to the correct roadmap section."
+          },
+          "title": {
+            "type": "string",
+            "description": "One-line summary of the finding."
+          },
+          "where": {
+            "type": "string",
+            "description": "Roadmap section reference (e.g. '§4 Plan 5' or '§5 Coverage map row 3') plus any repo file path + line number the finding implicates (e.g. existing plan files, the upstream spec)."
+          },
+          "issue": {
+            "type": "string",
+            "description": "One-paragraph explanation of what is wrong, missing, or ambiguous."
+          },
+          "suggested_fix": {
+            "type": "string",
+            "description": "Concrete patch the author can apply. Specific enough that the author can act without re-deriving context (e.g. 'split Plan 5 into 5a/5b at the skill-bundle/git-MCP boundary; move repo registry from 5 to 5b')."
+          }
+        }
+      }
+    },
+    "spec_coverage_audit": {
+      "type": ["array", "null"],
+      "description": "Audit of the roadmap's §5 Coverage map against the upstream spec, when one exists. Each entry flags either a spec item missing from the map or a map row whose plan attribution is wrong. Null when the roadmap has no upstream spec.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["spec_item", "issue", "where"],
+        "properties": {
+          "spec_item": {
+            "type": "string",
+            "description": "Spec section or acceptance criterion the audit entry is about (quote or paraphrase)."
+          },
+          "issue": {
+            "type": "string",
+            "enum": ["MISSING", "WRONG_PLAN", "AMBIGUOUS", "SILENTLY_DROPPED"],
+            "description": "MISSING = spec item not in coverage map and not in any plan. WRONG_PLAN = mapped to a plan that does not actually deliver it. AMBIGUOUS = spec item split across plans without clear ownership. SILENTLY_DROPPED = roadmap omits the item without an explicit out-of-scope entry."
+          },
+          "where": {
+            "type": "string",
+            "description": "Spec file path + section, plus the roadmap location that should have addressed it."
+          }
+        }
+      }
+    },
+    "cross_plan_coupling_audit": {
+      "type": ["array", "null"],
+      "description": "Cases where one plan's claimed contract does not match another plan's assumed contract. Distinct from findings[] because these are inter-plan consistency checks rather than per-plan defects. Null or empty array if none.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["producing_plan", "consuming_plan", "contract", "issue"],
+        "properties": {
+          "producing_plan": { "type": "string", "description": "Plan slug or §4 reference that introduces the contract." },
+          "consuming_plan": { "type": "string", "description": "Plan slug or §4 reference that depends on the contract." },
+          "contract": { "type": "string", "description": "The contract as stated (interface, data shape, file location, etc.)." },
+          "issue": { "type": "string", "description": "What's inconsistent and how it would manifest if not fixed." }
+        }
+      }
+    },
+    "missed_risks": {
+      "type": ["array", "null"],
+      "description": "Roadmap-level risks not captured in §7. Each item should be actionable (suggest a mitigation or a plan-level rework), not philosophical. Null or empty array if none.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["risk", "mitigation", "affected_plans"],
+        "properties": {
+          "risk": { "type": "string" },
+          "mitigation": { "type": "string" },
+          "affected_plans": { "type": "string", "description": "Comma-separated plan slugs or '§4 Plan N' refs." }
+        }
+      }
+    }
+  }
+}

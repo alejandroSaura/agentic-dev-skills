@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-dev/parallel-safety-check.schema.json",
+  "title": "Agentic Harness — Parallel Safety Check",
+  "description": "Per-pair evaluation artifact produced by the orchestrator at dispatch time before authorising parallel phase execution (Phase 9, D-8). Written to `dev/<feature>/parallelism/parallel-safety-check-<pair>.json` where `<pair>` is the two phase ids joined by `+` in lexicographic order (e.g. `phase-2+phase-3`). The artifact records the 6-item C-1..C-6 checklist result for one candidate pair, the resulting decision (`allow_parallel` or `serialize`), and the rationale. One artifact is produced per candidate pair the orchestrator evaluates; serialized pairs are still logged so the audit trail shows the decision history. Orchestrator-only writer per D-10 (sub-agents never mutate files under `dev/<feature>/parallelism/`). Consumed by the §Parallelism Policy section of `.claude/commands/agentic-dev.md` at dispatch and by post-hoc telemetry review.",
+  "type": "object",
+  "required": ["candidate_pair", "checklist_results", "decision", "rationale"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_note": {
+      "type": "string",
+      "description": "Free-form note about this evaluation's context (e.g. which run-id triggered the check, which plan revision the decision was based on). Not load-bearing; orchestrator ignores it."
+    },
+    "evaluated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp when the orchestrator ran the checklist. Optional but recommended for audit-trail ordering when multiple pairs are evaluated in quick succession."
+    },
+    "candidate_pair": {
+      "type": "array",
+      "description": "Exactly two phase ids the orchestrator is considering dispatching in parallel. Order is significant only for the filename convention (`parallel-safety-check-<a>+<b>.json`, lexicographic); semantically the pair is unordered. Ids match the `phase-N` pattern used in `phase-manifest.schema.json` and `feature-list.json.blocking_phase`.",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^phase-[0-9]+$"
+      }
+    },
+    "checklist_results": {
+      "type": "array",
+      "description": "Exactly six entries — one per checklist item C-1 through C-6 as defined in `.claude/commands/agentic-dev.md` §Parallelism Policy and the plan's Phase 9 body. Every item must be present; the orchestrator refuses to write a partial checklist. Order is canonical (C-1 first, C-6 last) so diffs across pairs are readable.",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "$ref": "#/definitions/checklistItem"
+      }
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["allow_parallel", "serialize"],
+      "description": "Orchestrator's dispatch decision for this pair. `allow_parallel` requires every checklist item to be `pass`; any `fail` item forces `serialize`. The decision is load-bearing — the orchestrator uses it directly to branch between parallel dispatch (two sub-agents, separate worktrees per C-6) and sequential dispatch."
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One-paragraph prose justification. For `allow_parallel`: summarise why all six checks passed, citing the strongest signal (e.g. 'disjoint touched_files, zero shared-doc writes declared, decisions frozen at plan v6'). For `serialize`: name the first failing check and explain the observed overlap or risk. Recorded so post-hoc review can audit the orchestrator's judgment without re-running the checklist."
+    }
+  },
+  "definitions": {
+    "checklistItem": {
+      "type": "object",
+      "required": ["id", "result", "rationale"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": ["C-1", "C-2", "C-3", "C-4", "C-5", "C-6"],
+          "description": "Checklist-item identifier. Canonical wording in `.claude/commands/agentic-dev.md` §Parallelism Policy: C-1 touched-files disjoint, C-2 decisions frozen, C-3 no shared-doc mutations, C-4 merge bookkeeping safe, C-5 no cross-phase test-fixture mutation, C-6 worktree isolation."
+        },
+        "result": {
+          "type": "string",
+          "enum": ["pass", "fail"],
+          "description": "Outcome of this single check for the candidate pair. `pass` means the check's safety condition holds; `fail` means it does not and the pair must serialize. Any single `fail` forces `decision=serialize`."
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Concrete evidence for the result. For `pass`: cite the artifact that proves independence (e.g. 'phase-2 touched_files = [A,B]; phase-3 touched_files = [C,D]; intersection empty'). For `fail`: name the overlap (e.g. 'both phases list SHARED_MEMORY.md in their writes', 'phase-4 has unresolved decision D-013'). Keeps audit trail self-contained; no cross-file lookups needed to understand why a pair was serialized."
+        }
+      }
+    }
+  }
+}

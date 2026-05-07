@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Codex Review Verdict",
+  "description": "Structured output for codex review agents. Orchestrator parses this to decide PASS/FAIL and surface findings. Used via `codex exec --output-schema <this file>` per agentic-dev.md §Codex CLI Invocation.",
+  "type": "object",
+  "required": ["verdict", "summary", "findings", "self_audit_verification"],
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "FAIL"],
+      "description": "Overall review outcome. FAIL iff at least one critical or important finding exists, OR the self_audit_verification reveals a falsified null-claim."
+    },
+    "summary": {
+      "type": "string",
+      "description": "One-paragraph summary of what was verified and any notable observations. Under 200 words."
+    },
+    "findings": {
+      "type": "array",
+      "description": "Review findings, grouped implicitly by severity. Empty array on clean PASS.",
+      "items": {
+        "type": "object",
+        "required": ["severity", "title", "file", "line", "suggested_fix"],
+        "additionalProperties": false,
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "important", "optional"],
+            "description": "critical = blocks merge; important = fix before merge; optional = nit."
+          },
+          "title": {
+            "type": "string",
+            "description": "One-line summary of the finding."
+          },
+          "file": {
+            "type": ["string", "null"],
+            "description": "Repo-root-relative path to the offending file. Null if the finding is not file-local (e.g. missing gate, global policy breach)."
+          },
+          "line": {
+            "type": ["integer", "null"],
+            "description": "Line number inside `file`. Null if not applicable."
+          },
+          "suggested_fix": {
+            "type": "string",
+            "description": "Concrete action the fix agent should take. Should be specific enough that the fix agent can act without re-deriving context."
+          }
+        }
+      }
+    },
+    "self_audit_verification": {
+      "type": "object",
+      "description": "Result of the §3a 'Verify self-audit' gate in run-review.md. Required unless the impl handoff genuinely has no scope that could produce stale artifacts (rare).",
+      "required": ["claim_checked", "grep_command", "result"],
+      "additionalProperties": false,
+      "properties": {
+        "claim_checked": {
+          "type": "string",
+          "description": "Which claim from the impl handoff's §'Stale artifact self-audit' section was cross-checked."
+        },
+        "grep_command": {
+          "type": "string",
+          "description": "The exact grep the reviewer re-ran to cross-check."
+        },
+        "result": {
+          "type": "string",
+          "enum": ["consistent", "discrepancy", "null_claim_falsified"],
+          "description": "consistent = agent's claim matched reviewer's re-run; discrepancy = reviewer found matches the agent didn't list; null_claim_falsified = agent said 'None found' but reviewer found plausible stale artifacts (auto-FAIL)."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-dev/feature-list.schema.json",
+  "title": "Agentic Harness — Feature List",
+  "description": "Mandatory per D-2. Every new feature (schema_version v3) carries `dev/<feature>/feature-list.json` conforming to this schema. Each entry declares one observable behavior plus the shell command whose exit code determines pass/fail. Finalize blocks until every entry has status=passed. Paths in verification_command are repo-root-relative per D-11; the orchestrator runs them from `$(git rev-parse --show-toplevel)`. Scale-down rule (1-entry feature-list) is documented in plan.template.md §Feature list and only satisfies this schema when all four conditions in that rule hold.",
+  "type": "object",
+  "required": ["features"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_note": {
+      "type": "string",
+      "description": "Free-form note about the list's scope, conventions, or cwd assumptions. Not load-bearing; orchestrator ignores it."
+    },
+    "features": {
+      "type": "array",
+      "description": "Ordered list of granular pass/fail assertions. Order is not semantically significant; `id` is the stable key.",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/featureEntry"
+      }
+    }
+  },
+  "definitions": {
+    "featureEntry": {
+      "type": "object",
+      "required": ["id", "description", "verification_command", "status", "blocking_phase"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^F-[0-9]{3,}$",
+          "description": "Stable feature identifier. Format: F-NNN where NNN is a zero-padded integer (e.g. F-001, F-042). Must be unique within the list."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "One-line statement of the observable pass condition. Present tense, concrete, grep-friendly."
+        },
+        "verification_command": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Shell command whose exit code determines pass/fail. Paths are repo-root-relative per D-11; orchestrator prefixes `cd $(git rev-parse --show-toplevel) && ` at evaluation time. Exit code 0 flips status to `passed`; any non-zero exit leaves status unchanged."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "in_progress", "passed", "blocked"],
+          "description": "Current evaluation state. `pending` before first run, `in_progress` while the blocking phase is active, `passed` once verification_command returned 0, `blocked` when a dependency or environment issue prevents evaluation. Finalize requires `passed` for every entry."
+        },
+        "status_reason": {
+          "type": "string",
+          "description": "Optional free-text explanation when status is `blocked` or `in_progress`. Example: `awaiting_human_unity_verification`."
+        },
+        "passed_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO-8601 timestamp captured the moment status flipped to `passed`. Null while status is not `passed`."
+        },
+        "blocking_phase": {
+          "type": "string",
+          "pattern": "^phase-[0-9]+$",
+          "description": "The phase expected to complete this feature. Format: phase-N (e.g. phase-1, phase-10). Used by the orchestrator to attribute feature progress to the responsible phase and to surface regressions when a later phase breaks an earlier feature."
+        }
+      }
+    }
+  }
+}
