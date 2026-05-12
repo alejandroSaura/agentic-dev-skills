@@ -192,6 +192,39 @@ The plan template's section numbers are stable (`.agentic/templates/plan.templat
 ### D. Demo verification gate (`status: implementing → demo_pending → complete`)
 
 1. Set child status to `demo_pending`. Update runner state and roadmap doc.
+1a. **D.1a — Dispatch /run-exit-demo if installed.**
+
+    Evaluate the dispatch predicate from D-6 of plan-run-exit-demo.md:
+    dispatch when (1) the skill file `~/.claude/commands/run-exit-demo.md`
+    exists, AND (2) the child plan has a `spec_glob` (from
+    `runner-state.json`'s `child_plans[].spec_glob` if set, else the
+    default `dev/demo-e2e/tests/<slug>.spec.ts`) that resolves to at
+    least one existing file in the consumer repo.
+
+    If the predicate is false, fall through to step 2 (the existing
+    human-only gate).
+
+    If the predicate is true:
+    1. Dispatch `/run-exit-demo plan=<slug> spec_glob=<glob>
+       hosts_yaml=<child_plan.hosts_yaml || "dev/demo-e2e/hosts.yaml">`.
+    2. Wait for the dispatched sub-agent to return.
+    3. Read `dev/<plan>/demo-state.json`. Compare `harness_head_sha`
+       against `git HEAD` at runner time and `harness_worktree_dirty`
+       against any non-empty state. On staleness, surface a
+       `demo-state stale` `AskUserQuestion` per D-10 with options
+       `re-run /run-exit-demo` / `accept stale` / `abort`.
+    4. On a non-stale read, branch on `demo-state.json.status`:
+       - `"pass"` → mark child plan `complete`, write
+         `demo_verified_at` from `ran_at`, link `demo_log_entry_path`
+         to `json_summary.run_logs`. Skip step 2 (no human gate
+         needed — the skill verified).
+       - `"blocked"` → surface `blocker.summary` and `evidence_paths`
+         (by link, not inlined) via `AskUserQuestion`. Options:
+         `re-run /agentic-dev with this blocker added to §10`,
+         `mark blocked`, `abort`.
+       - `"fail"` → surface `failure` + `failure_detail` from
+         `json_summary` via `AskUserQuestion`. Options:
+         `re-run /agentic-dev`, `mark blocked`, `abort`.
 2. Surface the plan's §4 `Exit demo:` line to the human via `AskUserQuestion`:
    - Question: "Plan `<slug>` finished implementation. Verify the exit demo:\n\n  > <exit_demo>\n\nReply 'demo verified', 'demo failed' (then describe what went wrong), or 'inconclusive — investigate'."
    - On `demo verified` → set child status to `complete`, write `demo_verified_at`, write `completed_at`. Update runner state and roadmap doc.

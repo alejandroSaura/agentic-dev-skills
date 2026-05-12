@@ -1,0 +1,29 @@
+{
+  "roadmap_path": "docs/roadmaps/example-roadmap.md",
+  "roadmap_slug": "example-roadmap",
+  "status": "running",
+  "auto_advance": false,
+  "current_plan_slug": "example-plan",
+  "child_plans": [
+    {
+      "slug": "example-plan",
+      "title": "Example plan carrying demo_state_path + spec_glob",
+      "status": "demo_pending",
+      "plan_path": "docs/plans/plan-example-plan.md",
+      "depends_on": [],
+      "exit_demo": "Run the spec at spec_glob; observe pass.",
+      "demo_state_path": "dev/example-plan/demo-state.json",
+      "spec_glob": "dev/demo-e2e/tests/example-plan.spec.ts",
+      "agentic_dev_resume_count": 0,
+      "child_state_path": "dev/example-plan/state.json"
+    }
+  ],
+  "blocker": null,
+  "telemetry": {
+    "started_at": "2026-05-12T12:00:00Z",
+    "last_updated": "2026-05-12T12:05:00Z",
+    "plans_completed": 0,
+    "blockers_raised": 0,
+    "agentic_dev_resumes_total": 0
+  }
+}

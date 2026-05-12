@@ -75,6 +75,50 @@
           "child_state_path": {
             "type": ["string", "null"],
             "description": "Path to the agentic-dev state.json for this plan (e.g. dev/<slug>/state.json). Set when implementing begins."
+          },
+          "demo_log_entry_path": {
+            "type": ["string", "null"],
+            "description": "Path (and optional anchor) to the per-plan demo log entry where the human or /run-exit-demo recorded what was verified (e.g. docs/plans/plan-<slug>.md §11)."
+          },
+          "demo_eyeballer": {
+            "type": ["string", "null"],
+            "description": "Who verified the exit demo (free-form: human name, 'Claude orchestrator', or '/run-exit-demo')."
+          },
+          "demo_main_head": {
+            "type": ["string", "null"],
+            "description": "main-branch HEAD SHA at the time the exit demo was eyeballed. Used to anchor demo verification to a specific merged commit."
+          },
+          "demo_caveats_filed_for_next_plan": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Caveats / partial verifications / follow-ups that the next plan (or a future plan) should pick up. Free-form strings."
+          },
+          "phase_progress": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Plan-specific phase-level rollup (phases_completed, last_phase_merge_commit, feature branch, etc.). Schema is intentionally open — not load-bearing for the runner."
+          },
+          "planning_metadata": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Plan-specific planning metadata (rounds_run, final_verdict, patches applied, etc.). Schema is intentionally open."
+          },
+          "demo_verification_status": {
+            "enum": ["pass", "partial", "fail", null],
+            "description": "Outcome of the demo verification gate. Null when not yet verified; otherwise pass / partial / fail."
+          },
+          "demo_verification_notes": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Plan-specific demo verification notes (last_run_at, last_run_logs, passed, failing, infra_state, etc.). Schema is intentionally open."
+          },
+          "demo_state_path": {
+            "type": ["string", "null"],
+            "description": "Path the runner reads exit-demo state from (e.g. dev/<slug>/demo-state.json). When null, the runner applies the default dev/<slug>/demo-state.json at read time — the default is not encoded in the schema."
+          },
+          "spec_glob": {
+            "type": ["string", "null"],
+            "description": "Spec glob passed to /run-exit-demo for this plan. When null, the runner applies the default dev/demo-e2e/tests/<slug>.spec.ts at read time — the default is not encoded in the schema."
           }
         }
       }
