@@ -1,0 +1,22 @@
+{
+  "status": "pass",
+  "plan": "durability",
+  "ran_at": "2026-05-11T18:42:13.000Z",
+  "harness_head_sha": "c66a2173f9d4ab1c0e8e5b21d3f8a6c9b1e7a4f0",
+  "harness_worktree_dirty": false,
+  "json_summary": {
+    "status": "pass",
+    "passed": 3,
+    "failed": 0,
+    "duration_ms": 41273
+  },
+  "playwright_reporter_path": "dev/demo-e2e/test-results/results.json",
+  "passed_specs": [
+    "durability §10.1 owner cookie survives Bun restart",
+    "durability §10.3 SSE resumes after wired-host reboot",
+    "durability §10.4 run-exit-demo round-trip"
+  ],
+  "failing_specs": [],
+  "auto_recovered": [],
+  "blocker": null
+}

@@ -1,0 +1,41 @@
+{
+  "status": "fail",
+  "plan": "durability",
+  "ran_at": "2026-05-10T09:03:21.000Z",
+  "harness_head_sha": "819d549e7a1b3c5d9f2e4a6b8c0d1e3f5a7b9c2d",
+  "harness_worktree_dirty": true,
+  "json_summary": {
+    "status": "fail",
+    "passed": 2,
+    "failed": 2,
+    "duration_ms": 47985,
+    "triage": "unknown"
+  },
+  "playwright_reporter_path": "dev/demo-e2e/test-results/results.json",
+  "passed_specs": [
+    "durability §10.1 owner cookie survives Bun restart",
+    "exit-demo round-trip writes demo-state.json"
+  ],
+  "failing_specs": [
+    {
+      "spec_id": "durability §10.3 SSE resumes after wired-host reboot",
+      "category": "unknown",
+      "diagnosis": "Failure pattern does not match known harness or real-bug fingerprints; needs human triage.",
+      "reporter_error": "page.waitForSelector: Timeout 30000ms exceeded waiting for selector \"[data-sse-state=connected]\""
+    },
+    {
+      "spec_id": "durability §10.4 run-exit-demo round-trip",
+      "category": "harness",
+      "diagnosis": "Local dev/demo-e2e tree has uncommitted changes (harness_worktree_dirty=true) — re-run after committing or stashing.",
+      "reporter_error": null
+    }
+  ],
+  "auto_recovered": [
+    {
+      "class": "known_hosts",
+      "action": "refresh wired-host fingerprint",
+      "outcome": "no-op"
+    }
+  ],
+  "blocker": null
+}

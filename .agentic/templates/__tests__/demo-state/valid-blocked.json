@@ -1,0 +1,45 @@
+{
+  "status": "blocked",
+  "plan": "durability",
+  "ran_at": "2026-05-09T22:17:55.000Z",
+  "harness_head_sha": "6a097a7b2c4e8d1f3a5b7c9d2e4f6081a3b5c7d9",
+  "harness_worktree_dirty": false,
+  "json_summary": {
+    "status": "blocked",
+    "passed": 3,
+    "failed": 1,
+    "duration_ms": 58104,
+    "blocker_class": "real-bug"
+  },
+  "playwright_reporter_path": "dev/demo-e2e/test-results/results.json",
+  "passed_specs": [
+    "durability §10.1 owner cookie survives Bun restart",
+    "durability §10.4 run-exit-demo round-trip",
+    "exit-demo round-trip writes demo-state.json"
+  ],
+  "failing_specs": [
+    {
+      "spec_id": "durability §10.3 SSE resumes after wired-host reboot",
+      "category": "real-bug",
+      "diagnosis": "After wired-host reboot the SSE client received the first heartbeat 12.4s after reconnect, exceeding the 10s budget. Server logs show the resume token was accepted but the catch-up replay stalled on a closed write queue.",
+      "reporter_error": "Expected heartbeat within 10000ms, received first frame at 12412ms"
+    }
+  ],
+  "auto_recovered": [
+    {
+      "class": "known_hosts",
+      "action": "refresh wired-host fingerprint",
+      "outcome": "already-applied",
+      "fingerprint_before_path": "run_logs/2026-05-09T22-17-55Z/known_hosts.before",
+      "fingerprint_after_path": "run_logs/2026-05-09T22-17-55Z/known_hosts.after"
+    }
+  ],
+  "blocker": {
+    "summary": "§10.3 SSE resume exceeds 10s budget after wired-host reboot — appears to be a real regression in the catch-up replay queue (see dev/demo-e2e/test-results/results.json:42).",
+    "evidence_paths": [
+      "run_logs/2026-05-09T22-17-55Z/playwright/results.json",
+      "run_logs/2026-05-09T22-17-55Z/server/sse-replay.log",
+      "run_logs/2026-05-09T22-17-55Z/wired-host/reboot-timeline.txt"
+    ]
+  }
+}
