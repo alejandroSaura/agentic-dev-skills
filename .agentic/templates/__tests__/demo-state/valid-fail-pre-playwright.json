@@ -1,0 +1,17 @@
+{
+  "status": "fail",
+  "plan": "durability",
+  "ran_at": "2026-05-10T11:48:02.000Z",
+  "harness_head_sha": "cd660e0f1a2b3c4d5e6f708192a3b4c5d6e7f809",
+  "harness_worktree_dirty": false,
+  "json_summary": {
+    "status": "fail",
+    "failure": "preflight",
+    "failure_detail": "hosts.yaml not found at dev/demo-e2e/hosts.yaml — cross-host preflight aborted before spawning Playwright (see dev/demo-e2e/src/main.ts:163)."
+  },
+  "playwright_reporter_path": null,
+  "passed_specs": [],
+  "failing_specs": [],
+  "auto_recovered": [],
+  "blocker": null
+}

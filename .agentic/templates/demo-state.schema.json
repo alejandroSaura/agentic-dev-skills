@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Demo Exit State",
+  "description": "Schema for demo-state.json produced by the /run-exit-demo skill. Captures the structured outcome of a Forgekeeper exit-demo run (Playwright reporter path, passed/failing specs, auto-recovery actions, blocker context, and harness staleness fields). See plan-run-exit-demo.md §D-7.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "plan",
+    "ran_at",
+    "harness_head_sha",
+    "harness_worktree_dirty",
+    "json_summary",
+    "playwright_reporter_path",
+    "passed_specs",
+    "failing_specs",
+    "auto_recovered",
+    "blocker"
+  ],
+  "properties": {
+    "status": {
+      "enum": ["pass", "blocked", "fail"]
+    },
+    "plan": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "ran_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "harness_head_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "Forgekeeper repo HEAD SHA at the moment the skill ran. Used by the runner for staleness detection (see D-10)."
+    },
+    "harness_worktree_dirty": {
+      "type": "boolean",
+      "description": "True if `git status --porcelain` was non-empty at run time. The runner treats dirty=true as a staleness warning regardless of SHA match."
+    },
+    "json_summary": {
+      "type": "object",
+      "description": "Verbatim D-9 summary from dev/demo-e2e/src/main.ts stdout last line.",
+      "required": ["status"],
+      "additionalProperties": true
+    },
+    "playwright_reporter_path": {
+      "type": ["string", "null"],
+      "description": "Path to the Playwright JSON reporter output (typically dev/demo-e2e/test-results/results.json) captured during this run. Carried by reference, not inlined. NULL when Playwright did not run (e.g. preflight failed before spawning — see dev/demo-e2e/src/main.ts:163 path)."
+    },
+    "passed_specs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "failing_specs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["spec_id", "category", "diagnosis"],
+        "properties": {
+          "spec_id": {
+            "type": "string",
+            "description": "The Playwright test title (codebase-analysis.md §2 — spec identifier IS the test title)."
+          },
+          "category": {
+            "enum": ["harness", "real-bug", "unknown"]
+          },
+          "diagnosis": { "type": "string" },
+          "reporter_error": {
+            "type": ["string", "null"],
+            "description": "Optional short excerpt of the Playwright reporter's error message field for this spec. By reference only — full traces stay in run_logs."
+          }
+        }
+      }
+    },
+    "auto_recovered": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["class", "action"],
+        "properties": {
+          "class": { "type": "string" },
+          "action": { "type": "string" },
+          "outcome": {
+            "enum": ["applied", "already-applied", "no-op"]
+          },
+          "fingerprint_before_path": {
+            "type": ["string", "null"],
+            "description": "For known_hosts recovery, path inside the run-logs archive that captured the prior host fingerprint (by reference)."
+          },
+          "fingerprint_after_path": {
+            "type": ["string", "null"]
+          }
+        }
+      }
+    },
+    "blocker": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["summary", "evidence_paths"],
+          "properties": {
+            "summary": { "type": "string" },
+            "evidence_paths": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

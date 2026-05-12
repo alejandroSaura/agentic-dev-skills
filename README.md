@@ -9,6 +9,7 @@ A bundle of [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills
 - **`/adversarial-review-roadmap`** — Reviews an existing roadmap (an index of multiple child plans) for slicing, ordering, exit demos, spec coverage, and cross-plan coupling. Same iterative adversarial pattern as `/adversarial-review-plan`.
 - **`/roadmap-runner`** — Orchestrates a multi-plan initiative end-to-end. Dispatches `/adversarial-review-plan` (lazy authoring per child plan) and `/agentic-dev` (implementation), bubbling up every human-interaction point those skills would otherwise own to the human in scope.
 - **`/review-feature-phase`** — Phase-level adversarial code-diff review (used internally by `/agentic-dev`; can also be invoked directly).
+- **`/run-exit-demo`** — Runs a consumer plan's exit demo via the `dev/demo-e2e/` cross-host harness on a dedicated Opus 4.7 sub-agent, recovers from known harness classes, triages per-spec failures, and emits `dev/<plan>/demo-state.json` for `/roadmap-runner` to consume.
 
 ## Install
 
